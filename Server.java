@@ -15,8 +15,6 @@ import static java.lang.System.out;
 
 public class Server{
 
-
-
     public static void main(String[] args) throws IOException {
         InetAddress ip;
         String hostname;
@@ -44,8 +42,51 @@ public class Server{
          */
         SelectionKey selectKey = socket.register(selector, ops, null);
 
+        /**
+         * Infinite loop...
+         * Keep server running
+         */
+        while(true) {
 
+            /** Select set of keys whose corresponding channels are ready*/
+            selector.select();
 
+            /** Token representing the registration of a SelectableChannel*/
+            Set<SelectionKey> serverKeys = selector.selectedKeys();
+            Iterator<SelectionKey> serverIterator = serverKeys.iterator();
+
+            while (serverIterator.hasNext()) {
+                SelectionKey serverKey = serverIterator.next();
+
+                /**Test if channel is ready to accept a new socket connection*/
+                if (serverKey.isAcceptable()) {
+                    SocketChannel client = socket.accept();
+
+                    /**Adjust channels blocking mode to false*/
+                    client.configureBlocking(false);
+
+                    /**Operation-set bit for read operations*/
+                    client.register(selector, SelectionKey.OP_READ);
+                    log("Connected: " + client.getLocalAddress() + "\n");
+
+                } else if (serverKey.isReadable()) {
+                    SocketChannel client = (SocketChannel) serverKey.channel();
+                    ByteBuffer serverBuffer = ByteBuffer.allocate(256);
+                    client.read(serverBuffer);
+                    String result = new String(serverBuffer.array()).trim();
+                    log("Client: " + result);
+
+                    if (result.equals("bye")) {
+//                        client.close();
+                        log("\nIt's time to close.");
+                        client.close();
+                        break;
+                    }
+                }
+                serverIterator.remove();
+            }
+        }
     }
 
+    private static void log(String str) {System.out.println(str+"\n");}
 }
